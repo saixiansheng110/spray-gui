@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>spray webgui</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --panel-2: #1c2230;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --yellow: #d29922;
+    --red: #f85149;
+    --purple: #bc8cff;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  header {
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  header h1 { font-size: 18px; margin: 0; font-weight: 600; line-height: 28px; }
+  header .badge {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 0 8px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    border-radius: 4px;
+  }
+  #status {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--muted);
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+  }
+  #status.running { color: var(--green); }
+  #status.error { color: var(--red); }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    height: calc(100vh - 53px);
+  }
+  aside {
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 16px;
+  }
+  .field { margin-bottom: 14px; }
+  .field > label {
+    display: block;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  input[type=text], input[type=number], select {
+    width: 100%;
+    height: 34px;
+    box-sizing: border-box;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 0 9px;
+    font-family: var(--mono);
+    font-size: 13px;
+  }
+  textarea {
+    width: 100%;
+    box-sizing: border-box;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 6px 9px;
+    font-family: var(--mono);
+    font-size: 13px;
+    resize: vertical;
+    min-height: 34px;
+  }
+  input:focus, textarea:focus, select:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .row { display: flex; gap: 8px; }
+  .row > .field { flex: 1; }
+  .checks { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; }
+  .checks label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    color: var(--text);
+  }
+  .checks input[type=checkbox] { accent-color: var(--accent); }
+  .section-title {
+    font-size: 11px;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 18px 0 10px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 6px;
+    font-weight: 600;
+  }
+  .section-title:first-child { margin-top: 0; }
+  .btns { display: flex; gap: 8px; margin-top: 20px; }
+  button {
+    flex: 1;
+    padding: 9px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--panel-2);
+    color: var(--text);
+    font-size: 14px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.15s;
+  }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  button.primary { background: var(--green); border-color: var(--green); color: #0d1117; }
+  button.danger { background: var(--red); border-color: var(--red); color: #0d1117; }
+
+  main { overflow: auto; display: flex; flex-direction: column; }
+
+  .stats {
+    display: flex;
+    gap: 1px;
+    background: var(--border);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .stat {
+    flex: 1;
+    background: var(--panel);
+    padding: 10px 14px;
+    text-align: center;
+  }
+  .stat .v { font-family: var(--mono); font-size: 20px; font-weight: 600; }
+  .stat .l { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .stat.r .v { color: var(--green); }
+  .stat.e .v { color: var(--red); }
+  .stat.f .v { color: var(--yellow); }
+
+  .table-wrap { flex: 1; overflow: auto; }
+  table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 12.5px; }
+  thead { position: sticky; top: 0; background: var(--panel); z-index: 1; }
+  th {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    color: var(--muted);
+    font-weight: 500;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+  }
+  td { padding: 6px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 360px; }
+  tr:hover td { background: var(--panel); }
+  .s2 { color: var(--green); font-weight: 600; }
+  .s3 { color: var(--yellow); font-weight: 600; }
+  .s4 { color: var(--red); }
+  .s5 { color: var(--red); font-weight: 600; }
+  .frame { color: var(--purple); font-size: 11px; }
+  .empty { color: var(--muted); text-align: center; padding: 60px 20px; font-family: -apple-system, sans-serif; }
+  .log {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    padding: 8px 14px;
+    border-top: 1px solid var(--border);
+    max-height: 140px;
+    overflow-y: auto;
+    flex-shrink: 0;
+    background: var(--bg);
+  }
+  .log .err { color: var(--red); }
+  .log .info { color: var(--accent); }
+
+  .toolbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 6px 14px; background: var(--panel); border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .toolbar-info { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .toolbar-btns { display: flex; gap: 6px; flex-direction: row; align-items: center; }
+  .toolbar-btn {
+    padding: 4px 12px; font-size: 12px; height: 28px;
+    border: 1px solid var(--border); border-radius: 4px;
+    background: var(--panel-2); color: var(--text); cursor: pointer;
+    white-space: nowrap; writing-mode: horizontal-tb;
+  }
+  .toolbar-btn:hover:not(:disabled) { border-color: var(--accent); }
+  .toolbar-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .upload-row { display: flex; align-items: center; gap: 8px; }
+  .upload-btn {
+    flex: 1; padding: 7px; border: 1px dashed var(--accent);
+    border-radius: 6px; background: transparent; color: var(--accent);
+    font-size: 12px; cursor: pointer; font-weight: 500;
+  }
+  .upload-btn:hover { background: var(--panel-2); }
+  .upload-hint { font-size: 11px; color: var(--muted); }
+  .dict-list { margin-top: 6px; }
+  .dict-item {
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--panel-2); border: 1px solid var(--border);
+    border-radius: 4px; padding: 4px 8px; margin-bottom: 4px;
+    font-family: var(--mono); font-size: 12px;
+  }
+  .dict-item .nm { color: var(--green); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dict-item .rm { color: var(--red); cursor: pointer; padding: 0 4px; }
+
+  .help-panel {
+    background: var(--panel); border-bottom: 1px solid var(--border);
+    padding: 12px 20px; display: none; overflow-y: auto; max-height: 60vh; flex-shrink: 0;
+  }
+  .help-panel.open { display: block; }
+  .help-panel h3 { font-size: 13px; margin: 12px 0 6px; color: var(--accent); }
+  .help-panel h3:first-child { margin-top: 0; }
+  .help-panel p, .help-panel li { font-size: 12.5px; color: var(--text); line-height: 1.6; }
+  .help-panel code { font-family: var(--mono); background: var(--panel-2); padding: 1px 5px; border-radius: 3px; color: var(--yellow); font-size: 11.5px; }
+  .help-panel ul { margin: 4px 0; padding-left: 20px; }
+  .help-toggle {
+    background: transparent; border: 1px solid var(--border); color: var(--accent);
+    padding: 0 12px; font-size: 12px; height: 28px;
+    display: inline-flex; align-items: center;
+    border-radius: 4px; cursor: pointer; flex: none;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>spray</h1>
+  <button class="help-toggle" id="helpToggle">使用教程</button>
+  <span id="status">idle</span>
+</header>
+
+<div class="help-panel" id="helpPanel">
+  <h3>一、快速开始(check 模式,类似 httpx)</h3>
+  <p>最简单的用法:只填目标 URL,不填字典。spray 会对每个目标发一个请求,收集状态码、标题、指纹、敏感信息。</p>
+  <ul>
+    <li>「URL」框填 <code>http://example.com</code>,每行一个</li>
+    <li>不勾选任何字典/掩码,直接点「开始扫描」</li>
+    <li>右侧表格实时显示:状态码、响应长度、耗时、URL、标题、指纹、来源</li>
+  </ul>
+  <h3>二、目录爆破(brute 模式,类似 dirsearch)</h3>
+  <p>提供字典后自动进入 brute 模式,对目标 + 字典里每个词发请求探测有效路径。</p>
+  <ul>
+    <li>「字典文件」点「选择并上传字典」,选中本地 txt 字典文件(每行一个词),可多选</li>
+    <li>上传后自动用绝对路径传给 spray,不用手填路径</li>
+    <li>常用字典:dirsearch 的 <code>dicc.txt</code>、raft 目录、常见后台路径</li>
+    <li>「扩展名」可填 <code>php,asp,jsp</code> 给每个词加后缀;勾「强制扩展名」强制给每个词加后缀</li>
+    <li>「掩码」可填 <code>{?l#4}</code> 生成4位小写字母组合;也支持 <code>{?d#3}</code> 数字、<code>{?ld#2}</code> 混合</li>
+    <li><b>「规则文件」</b>:对字典每个词用 hashcat 规则变形。例:在「规则文件」填 <code>rule.txt</code>,内容 <code>:</code> 保留原词、<code>l</code> 小写、<code>c</code> 首字母大写、<code>$1</code> 追加 <code>1</code>。多个规则文件逗号分隔。配合「过滤规则」如 <code>&gt;8</code> 只保留长度&gt;8 的结果</li>
+    <li>勾选「默认字典」加载 spray 自带默认字典;勾「大写」「小写」对所有词做大小写变换</li>
+  </ul>
+  <h3>三、指纹识别 / 插件</h3>
+  <p>勾选即启用,多选叠加,也可勾「全部」一键开启所有插件。</p>
+  <ul>
+    <li><b>全部</b>:一键启用全部插件(指纹/备份/常见/爬虫/主动/侦察/凭证/漏洞验证)</li>
+    <li><b>指纹</b>:主动探测常见指纹目录,集成 gogo/fingerprinthub/wappalyzer/ehole/goby/nmap/favicon 等指纹库</li>
+    <li><b>备份</b>:对发现的每个有效路径追加 <code>.bak/.zip/.sql/.swp</code> 等备份后缀爆破,找遗留文件</li>
+    <li><b>常见</b>:探测常见通用文件(.git/.env/log 等)</li>
+    <li><b>爬虫</b>:爬虫,自动从响应里提取新 URL 继续扫,「爬虫深度」默认 3</li>
+    <li><b>主动</b>:主动探测常见后台管理路径(/admin/manage/login 等)</li>
+    <li><b>侦察</b>:在响应里提取邮箱、IP、敏感信息(配合 info/pentest 标签)</li>
+    <li><b>凭证</b>:检测常见密钥/凭证泄露(AWS/GitHub/Stripe 等 token)</li>
+    <li><b>漏洞验证</b>:指纹识别后用 neutron 模板做 PoC 验证(需配合「指纹」使用)</li>
+    <li><b>备份生成</b>:用 fuzzuli 思路自动生成备份文件字典</li>
+  </ul>
+  <h3>四、过滤 / 输出</h3>
+  <p>控制哪些响应算"有效"以及输出内容。</p>
+  <ul>
+    <li><b>状态码</b>:默认 200 白名单、400/410 黑名单。改成「白状态」「黑状态」可自定义,如 <code>200,301</code>、<code>500,502</code></li>
+    <li><b>匹配表达式</b>:用 <code>expr-lang</code> 表达式只保留符合条件的响应。例:<code>current.Status != 200</code>、<code>current.BodyLength &gt; 1000</code>、<code>"admin" in current.Title</code></li>
+    <li><b>过滤表达式</b>:过滤掉不符合条件的响应。例:<code>current.Body contains "Powered by"</code>、<code>current.Status in [403, 404]</code></li>
+    <li><b>模糊输出</b>:基于 simhash 相似度去重,识别"全站都返回同一个 404 页面"这种情况,保留差异化的响应</li>
+    <li><b>去重</b>:对 403/200/404 等状态码的响应做去重,每个状态只显示第一个</li>
+    <li>完整字段参考(<code>current</code> 可用字段):<code>Status</code>、<code>BodyLength</code>、<code>Body</code>、<code>Title</code>、<code>UrlString</code>、<code>ContentType</code>、<code>HeaderLength</code>、<code>RedirectURL</code>、<code>Frameworks</code>、<code>IsValid</code>、<code>IsFuzzy</code></li>
+  </ul>
+  <h3>五、批量与多目标</h3>
+  <ul>
+    <li>URL 框每行一个目标,或用「URL 文件」指向一个 txt</li>
+    <li>支持 CIDR:填 <code>10.0.0.0/24</code>,配合「端口」<code>80,443,8080</code></li>
+    <li>「并发 pool」控制同时扫多少个目标,「线程 thread」控制每目标并发请求数</li>
+  </ul>
+  <h3>六、停止扫描</h3>
+  <p>点「停止」立即终止当前扫描,spray 内部通过 context 取消,已扫到的结果保留在表格里。再次点「开始」是新扫描。</p>
+</div>
+
+<div class="layout">
+  <aside>
+    <div class="section-title">目标输入</div>
+    <div class="field">
+      <label>URL 或 CIDR</label>
+      <input type="text" id="urls" placeholder="http://example.com 或 10.0.0.0/24">
+    </div>
+    <div class="row">
+      <div class="field">
+        <label>或上传 URL 文件</label>
+        <div class="upload-row">
+          <input type="file" id="urlListFile" style="display:none">
+          <button type="button" id="urlUploadBtn" class="upload-btn">选择并上传 URL 列表</button>
+          <span class="upload-hint" id="urlFileName"></span>
+        </div>
+      </div>
+      <div class="field">
+        <label>端口</label>
+        <input type="text" id="portRange" placeholder="80,443">
+      </div>
+    </div>
+
+    <div class="section-title">字典 / 生成</div>
+    <div class="field">
+      <label>字典文件 (上传后自动用绝对路径)</label>
+      <div class="upload-row">
+        <input type="file" id="dictFile" multiple style="display:none">
+        <button type="button" id="uploadBtn" class="upload-btn">选择并上传字典</button>
+        <span class="upload-hint">支持多文件</span>
+      </div>
+      <div id="dictList" class="dict-list"></div>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label>掩码</label>
+        <input type="text" id="word" placeholder="{?l#4}">
+      </div>
+      <div class="field">
+        <label>规则文件</label>
+        <div class="upload-row">
+          <input type="file" id="ruleFile" style="display:none">
+          <button type="button" id="ruleUploadBtn" class="upload-btn">选择并上传规则</button>
+          <span class="upload-hint" id="ruleFileName"></span>
+        </div>
+      </div>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label>扩展名</label>
+        <input type="text" id="extensions" placeholder="php,asp">
+      </div>
+      <div class="field">
+        <label>模式</label>
+        <select id="mod">
+          <option value="">auto</option>
+          <option value="path">path</option>
+          <option value="host">host</option>
+        </select>
+      </div>
+    </div>
+    <div class="checks">
+      <label><input type="checkbox" id="defaultDict"> 默认字典</label>
+      <label><input type="checkbox" id="forceExt"> 强制扩展名</label>
+      <label><input type="checkbox" id="upper"> 大写</label>
+      <label><input type="checkbox" id="lower"> 小写</label>
+    </div>
+
+    <div class="section-title">插件</div>
+    <div class="checks">
+      <label><input type="checkbox" id="advance"> 全部</label>
+      <label><input type="checkbox" id="finger"> 指纹</label>
+      <label><input type="checkbox" id="bak"> 备份</label>
+      <label><input type="checkbox" id="common"> 常见</label>
+      <label><input type="checkbox" id="crawl"> 爬虫</label>
+      <label><input type="checkbox" id="active"> 主动</label>
+      <label><input type="checkbox" id="recon"> 侦察</label>
+      <label><input type="checkbox" id="keys"> 凭证</label>
+      <label><input type="checkbox" id="poc"> 漏洞验证</label>
+      <label><input type="checkbox" id="fuzzuli"> 备份生成</label>
+    </div>
+
+    <div class="section-title">过滤 / 输出</div>
+    <div class="field">
+      <label>匹配表达式</label>
+      <input type="text" id="match" placeholder="current.Status != 200">
+    </div>
+    <div class="field">
+      <label>过滤表达式</label>
+      <input type="text" id="filter" placeholder='current.Body contains "hello"'>
+    </div>
+    <div class="checks">
+      <label><input type="checkbox" id="fuzzy"> 模糊输出</label>
+      <label><input type="checkbox" id="unique"> 去重</label>
+    </div>
+
+    <div class="section-title">请求 / 性能</div>
+    <div class="row">
+      <div class="field">
+        <label>方法</label>
+        <select id="method">
+          <option value="">GET</option>
+          <option>POST</option>
+          <option>HEAD</option>
+          <option>PUT</option>
+          <option>OPTIONS</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>超时(秒) [1-60]</label>
+        <input type="number" id="timeout" min="1" max="60" value="5">
+      </div>
+    </div>
+    <div class="field">
+      <div class="upload-row">
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;color:var(--text)">
+          <input type="checkbox" id="randomAgent" checked> 启用随机UA头轮换
+        </label>
+        <span class="upload-hint" id="uaCount"></span>
+        <button type="button" id="uaToggle" class="upload-btn" style="flex:none;padding:4px 10px;">查看</button>
+      </div>
+    </div>
+    <div class="field">
+      <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;color:var(--text);margin-top:6px">
+        <input type="checkbox" id="randomLocalIP"> 注入随机内网 IP 到 XFF 等头
+      </label>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label>并发数 [1-100]</label>
+        <input type="number" id="pool" min="1" max="100" value="5">
+      </div>
+      <div class="field">
+        <label>线程数 [1-1000]</label>
+        <input type="number" id="thread" min="1" max="1000" value="20">
+      </div>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label>限速 [0=不限,1-10000]</label>
+        <input type="number" id="rateLimit" min="0" max="10000" value="0">
+      </div>
+      <div class="field">
+        <label>递归深度 [0=不递归,1-10]</label>
+        <input type="number" id="depth" min="0" max="10" value="0">
+      </div>
+    </div>
+    <div class="field">
+      <label>代理</label>
+      <input type="text" id="proxy" placeholder="socks5://127.0.0.1:1080">
+    </div>
+
+    <div class="btns">
+      <button class="primary" id="startBtn">开始扫描</button>
+      <button class="danger" id="stopBtn" disabled>停止</button>
+    </div>
+  </aside>
+
+  <main>
+    <div class="stats">
+      <div class="stat"><div class="v" id="stReq">0</div><div class="l">requests</div></div>
+      <div class="stat r"><div class="v" id="stFound">0</div><div class="l">found</div></div>
+      <div class="stat f"><div class="v" id="stFuzzy">0</div><div class="l">fuzzy</div></div>
+      <div class="stat e"><div class="v" id="stErr">0</div><div class="l">errors</div></div>
+      <div class="stat"><div class="v" id="stElapsed">0s</div><div class="l">elapsed</div></div>
+    </div>
+
+    <div class="toolbar">
+      <span class="toolbar-info" id="resultCount">共 0 条结果</span>
+      <div class="toolbar-btns">
+        <button type="button" id="exportCsv" class="toolbar-btn" disabled>导出 CSV</button>
+        <button type="button" id="clearResults" class="toolbar-btn" disabled>清空</button>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>status</th>
+            <th>len</th>
+            <th>ms</th>
+            <th>url</th>
+            <th>title</th>
+            <th>frameworks</th>
+            <th>source</th>
+          </tr>
+        </thead>
+        <tbody id="results"></tbody>
+      </table>
+      <div class="empty" id="empty">填写左侧表单,点「开始扫描」。</div>
+    </div>
+
+    <div class="log" id="log"></div>
+  </main>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let evtSource = null;
+let counter = 0;
+let stReq = 0, stFound = 0, stFuzzy = 0, stErr = 0, startTs = 0;
+let elapsedTimer = null;
+
+// clamp v into [min,max]; default to d if empty/invalid
+function clampNum(v, min, max, d) {
+  let n = parseInt(v);
+  if (isNaN(n)) n = d;
+  if (n < min) n = min;
+  if (n > max) n = max;
+  return n;
+}
+
+function buildRequest() {
+  const urls = $('urls').value.split(/[\n,\s]+/).map(s => s.trim()).filter(Boolean);
+  // collect uploaded dictionary absolute paths from the dict list
+  const dicts = [...document.querySelectorAll('#dictList .dict-item')].map(el => el.dataset.path).filter(Boolean);
+  const headers = [];
+  // User-Agent is auto-rotated by the backend (12 built-in UAs); no client input.
+  const proxy = $('proxy').value.trim();
+  return {
+    urls, urlFile: uploadedUrlFilePath,
+    dictionaries: dicts, word: $('word').value.trim(),
+    rules: uploadedRules,
+    defaultDict: $('defaultDict').checked,
+    extensions: $('extensions').value.trim(),
+    forceExtension: $('forceExt').checked,
+    uppercase: $('upper').checked, lowercase: $('lower').checked,
+    advance: $('advance').checked, finger: $('finger').checked, bak: $('bak').checked,
+    common: $('common').checked, crawl: $('crawl').checked, active: $('active').checked,
+    recon: $('recon').checked, keys: $('keys').checked, poc: $('poc').checked, fuzzuli: $('fuzzuli').checked,
+    match: $('match').value.trim(), filter: $('filter').value.trim(),
+    fuzzy: $('fuzzy').checked, unique: $('unique').checked,
+    method: $('method').value, headers,
+    timeout: clampNum($('timeout').value, 1, 60, 5),
+    mod: $('mod').value,
+    pool: clampNum($('pool').value, 1, 100, 5),
+    thread: clampNum($('thread').value, 1, 1000, 20),
+    rateLimit: clampNum($('rateLimit').value, 0, 10000, 0),
+    depth: clampNum($('depth').value, 0, 10, 0),
+    proxies: proxy ? [proxy] : [],
+    randomAgent: $('randomAgent').checked,
+    randomLocalIP: $('randomLocalIP').checked,
+  };
+}
+
+function setStatus(txt, cls) {
+  const s = $('status');
+  s.textContent = txt;
+  s.className = cls || '';
+}
+
+function logMsg(msg, cls) {
+  const el = $('log');
+  const line = document.createElement('div');
+  if (cls) line.className = cls;
+  const t = new Date().toLocaleTimeString();
+  line.textContent = '[' + t + '] ' + msg;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+  // cap log length
+  while (el.children.length > 200) el.removeChild(el.firstChild);
+}
+
+const allResults = [];
+
+function addResult(r) {
+  allResults.push(r);
+  $('empty').style.display = 'none';
+  const tb = $('results');
+  const tr = document.createElement('tr');
+  counter++;
+  const sc = r.status || 0;
+  const scClass = sc >= 500 ? 's5' : sc >= 400 ? 's4' : sc >= 300 ? 's3' : sc >= 200 ? 's2' : '';
+  // frameworks is an object {name: {...}}, not an array
+  const fw = r.frameworks || {};
+  const frames = Object.keys(fw).map(k => '[' + (fw[k].name || k) + ']').join(' ');
+  tr.innerHTML =
+    '<td>' + counter + '</td>' +
+    '<td class="' + scClass + '">' + (sc||'-') + '</td>' +
+    '<td>' + (r.body_length||0) + '</td>' +
+    '<td>' + (r.spend||0) + '</td>' +
+    '<td>' + esc(r.url||'') + '</td>' +
+    '<td>' + esc(r.title||'') + '</td>' +
+    '<td class="frame">' + esc(frames) + '</td>' +
+    '<td>' + esc(r.source||'') + '</td>';
+  tb.appendChild(tr);
+  // cap table rows to avoid memory blow-up
+  while (tb.children.length > 5000) tb.removeChild(tb.firstChild);
+  // keep newest visible
+  const wrap = tb.parentElement.parentElement;
+  wrap.scrollTop = wrap.scrollHeight;
+  // update toolbar count + enable export
+  $('resultCount').textContent = '共 ' + allResults.length + ' 条结果';
+  $('exportCsv').disabled = false;
+  $('clearResults').disabled = false;
+}
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function bumpStat(k) {
+  if (k === 'found') { stFound++; $('stFound').textContent = stFound; }
+  if (k === 'fuzzy') { stFuzzy++; $('stFuzzy').textContent = stFuzzy; }
+  if (k === 'err') { stErr++; $('stErr').textContent = stErr; }
+  stReq++;
+  $('stReq').textContent = stReq;
+}
+
+function startElapsed() {
+  startTs = Date.now();
+  if (elapsedTimer) clearInterval(elapsedTimer);
+  elapsedTimer = setInterval(() => {
+    const s = Math.floor((Date.now() - startTs)/1000);
+    if (s < 60) $('stElapsed').textContent = s + 's';
+    else $('stElapsed').textContent = Math.floor(s/60) + 'm' + (s%60) + 's';
+  }, 500);
+}
+function stopElapsed() {
+  if (elapsedTimer) { clearInterval(elapsedTimer); elapsedTimer = null; }
+}
+
+function resetCounters() {
+  counter = 0; stReq = stFound = stFuzzy = stErr = 0;
+  $('stReq').textContent = '0'; $('stFound').textContent = '0';
+  $('stFuzzy').textContent = '0'; $('stErr').textContent = '0';
+  $('results').innerHTML = '';
+  $('empty').style.display = '';
+  // also reset results store and export buttons
+  allResults.length = 0;
+  $('resultCount').textContent = '共 0 条结果';
+  $('exportCsv').disabled = true;
+  $('clearResults').disabled = true;
+}
+
+$('startBtn').onclick = async () => {
+  const req = buildRequest();
+  if (!req.urls.length && !req.urlFile && !req.dictionaries.length && !req.word) {
+    logMsg('请至少填入 URL 或字典', 'err');
+    return;
+  }
+  resetCounters();
+  $('startBtn').disabled = true;
+  $('stopBtn').disabled = false;
+  setStatus('starting…', 'running');
+  logMsg('POST /api/scan ' + JSON.stringify(req.urls||req.urlFile), 'info');
+
+  try {
+    const resp = await fetch('/api/scan', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(req),
+    });
+    if (!resp.ok) {
+      const t = await resp.text();
+      throw new Error(t);
+    }
+    const j = await resp.json();
+    logMsg('scan started, args: ' + (j.args||[]).join(' '), 'info');
+    setStatus('running', 'running');
+    startElapsed();
+    openSSE();
+  } catch (e) {
+    logMsg('启动失败: ' + e.message, 'err');
+    setStatus('error', 'error');
+    $('startBtn').disabled = false;
+    $('stopBtn').disabled = true;
+  }
+};
+
+function openSSE() {
+  if (evtSource) evtSource.close();
+  evtSource = new EventSource('/api/events');
+  evtSource.addEventListener('started', e => {
+    const d = JSON.parse(e.data);
+    logMsg('SSE connected, ' + (d.args||[]).length + ' args', 'info');
+  });
+  evtSource.addEventListener('result', e => {
+    const r = JSON.parse(e.data);
+    addResult(r);
+    bumpStat(r.fuzzy ? 'fuzzy' : 'found');
+  });
+  evtSource.addEventListener('error', e => {
+    try {
+      const d = JSON.parse(e.data);
+      logMsg('错误: ' + (d.message||JSON.stringify(d)), 'err');
+      bumpStat('err');
+    } catch(_) {
+      // SSE connection error, not a scan error
+      if (evtSource.readyState === EventSource.CLOSED) {
+        logMsg('SSE closed', 'err');
+      }
+    }
+  });
+  evtSource.addEventListener('done', e => {
+    const d = JSON.parse(e.data);
+    logMsg('scan done, elapsed ' + (d.elapsedMs||0) + 'ms', 'info');
+    setStatus('powered by 赛先生', '');
+    finishScan();
+  });
+}
+
+function finishScan() {
+  $('startBtn').disabled = false;
+  $('stopBtn').disabled = true;
+  stopElapsed();
+  if (evtSource) { evtSource.close(); evtSource = null; }
+}
+
+$('stopBtn').onclick = async () => {
+  logMsg('停止请求已发送…', 'info');
+  $('stopBtn').disabled = true;
+  setStatus('stopping', '');
+  try {
+    const resp = await fetch('/api/stop', {method: 'POST'});
+    const j = await resp.json().catch(() => ({}));
+    logMsg('停止响应: ' + JSON.stringify(j), 'info');
+    // scan is being cancelled in the backend; restore UI so user can start a new one.
+    // any in-flight results may still arrive via SSE but a fresh scan resets the table.
+    stopElapsed();
+    setStatus('stopped', '');
+    $('startBtn').disabled = false;
+    // close the old SSE stream; the next scan opens a fresh one
+    if (evtSource) { evtSource.close(); evtSource = null; }
+  } catch(e) {
+    logMsg('停止请求失败: ' + e.message, 'err');
+    $('stopBtn').disabled = false;
+  }
+};
+
+// --- URL list file upload ---
+let uploadedUrlFilePath = '';
+// --- rule file upload ---
+let uploadedRules = []; // [path, ...]
+$('ruleUploadBtn').onclick = () => $('ruleFile').click();
+
+$('ruleFile').onchange = async () => {
+  const files = $('ruleFile').files;
+  if (!files.length) return;
+  for (const f of files) {
+    const fd = new FormData();
+    fd.append('file', f);
+    logMsg('上传规则: ' + f.name + ' (' + f.size + ' bytes)', 'info');
+    try {
+      const resp = await fetch('/api/upload', {method: 'POST', body: fd});
+      if (!resp.ok) { throw new Error(await resp.text()); }
+      const j = await resp.json();
+      uploadedRules.push(j.path);
+      $('ruleFileName').textContent = uploadedRules.map(p => p.split('/').pop()).join(', ');
+      logMsg('已上传规则: ' + j.path, 'info');
+    } catch(e) {
+      logMsg('上传失败 ' + f.name + ': ' + e.message, 'err');
+    }
+  }
+  $('ruleFile').value = '';
+};
+
+$('urlUploadBtn').onclick = () => $('urlListFile').click();
+
+$('urlListFile').onchange = async () => {
+  const f = $('urlListFile').files[0];
+  if (!f) return;
+  const fd = new FormData();
+  fd.append('file', f);
+  logMsg('上传 URL 列表: ' + f.name + ' (' + f.size + ' bytes)', 'info');
+  try {
+    const resp = await fetch('/api/upload', {method: 'POST', body: fd});
+    if (!resp.ok) { throw new Error(await resp.text()); }
+    const j = await resp.json();
+    uploadedUrlFilePath = j.path;
+    $('urlFileName').textContent = f.name;
+    logMsg('已上传 URL 列表: ' + j.path, 'info');
+  } catch(e) {
+    logMsg('上传失败 ' + f.name + ': ' + e.message, 'err');
+  }
+  $('urlListFile').value = '';
+};
+
+// --- UA list popup (loaded from backend /api/uas) ---
+$('uaToggle').onclick = async () => {
+  try {
+    const resp = await fetch('/api/uas');
+    const j = await resp.json();
+    const list = j.uas || [];
+    alert('已加载 ' + j.count + ' 个 UA(每请求随机轮换):\n\n' + list.map((u,i)=>(i+1)+'. '+u).join('\n'));
+  } catch(e) {
+    alert('加载 UA 列表失败: ' + e.message);
+  }
+};
+
+// show UA count on load
+(async () => {
+  try {
+    const resp = await fetch('/api/uas');
+    const j = await resp.json();
+    $('uaCount').textContent = '已加载 ' + j.count + ' 个';
+  } catch(_) {
+    $('uaCount').textContent = '';
+  }
+})();
+
+// --- dictionary upload ---
+const uploadedDicts = []; // {name, path}
+
+$('uploadBtn').onclick = () => $('dictFile').click();
+
+$('dictFile').onchange = async () => {
+  const files = $('dictFile').files;
+  if (!files.length) return;
+  for (const f of files) {
+    const fd = new FormData();
+    fd.append('file', f);
+    logMsg('上传字典: ' + f.name + ' (' + f.size + ' bytes)', 'info');
+    try {
+      const resp = await fetch('/api/upload', {method: 'POST', body: fd});
+      if (!resp.ok) { throw new Error(await resp.text()); }
+      const j = await resp.json();
+      uploadedDicts.push({name: j.name, path: j.path});
+      renderDictList();
+      logMsg('已上传: ' + j.name + ' → ' + j.path, 'info');
+    } catch(e) {
+      logMsg('上传失败 ' + f.name + ': ' + e.message, 'err');
+    }
+  }
+  $('dictFile').value = ''; // allow re-uploading same file
+};
+
+function renderDictList() {
+  const el = $('dictList');
+  el.innerHTML = '';
+  uploadedDicts.forEach((d, i) => {
+    const item = document.createElement('div');
+    item.className = 'dict-item';
+    item.dataset.path = d.path;
+    item.innerHTML = '<span class="nm" title="' + esc(d.path) + '">' + esc(d.name) + '</span><span class="rm" data-i="' + i + '">✕</span>';
+    el.appendChild(item);
+  });
+  el.querySelectorAll('.rm').forEach(rm => {
+    rm.onclick = () => {
+      uploadedDicts.splice(parseInt(rm.dataset.i), 1);
+      renderDictList();
+    };
+  });
+}
+
+// --- help panel toggle ---
+$('helpToggle').onclick = () => {
+  $('helpPanel').classList.toggle('open');
+};
+
+// --- export results ---
+function downloadFile(filename, content, mime) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+$('exportCsv').onclick = () => {
+  if (!allResults.length) return;
+  const cols = ['number','valid','fuzzy','status','body_length','spend','url','title','content_type','redirect_url','source'];
+  const escape = v => {
+    if (v === undefined || v === null) return '';
+    const s = String(v).replace(/"/g, '""');
+    return /[",\n]/.test(s) ? '"' + s + '"' : s;
+  };
+  const lines = [cols.join(',')];
+  for (const r of allResults) {
+    lines.push(cols.map(c => escape(r[c])).join(','));
+  }
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  downloadFile('spray-' + stamp + '.csv', lines.join('\n'), 'text/csv');
+  logMsg('已导出 ' + allResults.length + ' 条结果(CSV)', 'info');
+};
+
+$('clearResults').onclick = () => {
+  allResults.length = 0;
+  $('results').innerHTML = '';
+  $('resultCount').textContent = '共 0 条结果';
+  $('empty').style.display = '';
+  $('exportCsv').disabled = true;
+  $('clearResults').disabled = true;
+  counter = 0;
+  logMsg('已清空结果', 'info');
+};
+
+</script>
+</body>
+</html>

