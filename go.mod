@@ -10,7 +10,7 @@ require (
 	github.com/chainreactors/proton v0.3.3-0.20260704194051-e7034d2bb8cb
 	github.com/chainreactors/proxyclient v1.1.1-0.20260529172347-2a80e08d5593
 	github.com/chainreactors/utils v0.0.0-20260704034630-ef809fae5725
-	github.com/chainreactors/utils/parsers v0.0.2
+	github.com/chainreactors/utils/parsers v0.0.3
 	github.com/chainreactors/words v0.0.0-20260520145736-270600e60fb4
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/expr-lang/expr v1.16.9
