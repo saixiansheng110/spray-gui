@@ -1,6 +1,6 @@
 module github.com/chainreactors/spray
 
-go 1.25.4
+go 1.26.0
 
 require (
 	github.com/chainreactors/files v0.0.0-20240716182835-7884ee1e77f0
@@ -21,7 +21,7 @@ require (
 	github.com/refraction-networking/utls v1.8.1
 	github.com/valyala/fasthttp v1.53.0
 	github.com/vbauerster/mpb/v8 v8.7.3
-	golang.org/x/time v0.12.0
+	golang.org/x/time v0.16.0
 	sigs.k8s.io/yaml v1.6.0
 )
 
